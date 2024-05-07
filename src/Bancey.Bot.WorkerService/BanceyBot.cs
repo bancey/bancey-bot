@@ -1,3 +1,4 @@
+using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -8,15 +9,18 @@ namespace Bancey.Bot.WorkerService;
 
 public class BanceyBot
 {
+  private IServiceProvider _serviceProvider;
   private readonly ILogger<BanceyBot> _logger;
   private TelemetryClient _telemetryClient;
   private DiscordSocketClient _client;
+  private InteractionService? _interactionService;
 
-  public BanceyBot(ILogger<BanceyBot> logger, TelemetryClient telemetryClient, DiscordSocketClient client)
+  public BanceyBot(IServiceProvider serviceProvider)
   {
-    _logger = logger;
-    _telemetryClient = telemetryClient;
-    _client = client;
+    _serviceProvider = serviceProvider;
+    _logger = _serviceProvider.GetRequiredService<ILogger<BanceyBot>>();
+    _telemetryClient = _serviceProvider.GetRequiredService<TelemetryClient>();
+    _client = _serviceProvider.GetRequiredService<DiscordSocketClient>();
 
     if (!BanceyBotLogger.IsInitialized())
     {
@@ -44,8 +48,28 @@ public class BanceyBot
     {
       _logger.LogInformation("Registering commands...");
       var interactionService = new InteractionService(_client.Rest);
+      _interactionService = interactionService;
+      await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _serviceProvider);
       var result = await interactionService.RegisterCommandsToGuildAsync(423809074400854036);
+      _client.InteractionCreated += InteractionCreated;
       _logger.LogInformation("Commands successfully registered: {count}", result.Count);
+    }
+  }
+
+  public async Task InteractionCreated(SocketInteraction interaction)
+  {
+    if (_interactionService == null)
+    {
+      _logger.LogError("Interaction service not initialized.");
+      return;
+    }
+
+    using(var interactionCreatedOperation = _telemetryClient.StartOperation<RequestTelemetry>("InteractionCreated"))
+    {
+      _logger.LogInformation("Interaction executed {id}.", interaction.Id);
+      var scope = _serviceProvider.CreateScope();
+      var ctx = new SocketInteractionContext(_client, interaction);
+      await _interactionService.ExecuteCommandAsync(ctx, scope.ServiceProvider);
     }
   }
 }

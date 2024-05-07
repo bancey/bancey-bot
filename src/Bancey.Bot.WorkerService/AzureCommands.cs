@@ -4,7 +4,7 @@ using Microsoft.ApplicationInsights.DataContracts;
 
 namespace Bancey.Bot.WorkerService;
 
-public class AzureCLICommands(ILogger<AzureCLICommands> logger, TelemetryClient telemetryClient) : BanceyBotInteractionModuleBase(logger, telemetryClient)
+public class AzureCommands(ILogger<AzureCommands> logger, TelemetryClient telemetryClient) : BanceyBotInteractionModuleBase(logger, telemetryClient)
 {
   [SlashCommand("echo", "Echoes back the input.")]
   public async Task Echo(string input)
