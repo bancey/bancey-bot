@@ -1,6 +1,5 @@
 using Discord.Interactions;
 using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.DataContracts;
 
 namespace Bancey.Bot.WorkerService;
 
@@ -8,11 +7,13 @@ public abstract class BanceyBotInteractionModuleBase : InteractionModuleBase
 {
   internal readonly ILogger<BanceyBotInteractionModuleBase> _logger;
   internal readonly TelemetryClient _telemetryClient;
+  internal readonly BanceyBotSettings? _settings;
 
-  public BanceyBotInteractionModuleBase(ILogger<BanceyBotInteractionModuleBase> logger, TelemetryClient telemetryClient)
+  public BanceyBotInteractionModuleBase(ILogger<BanceyBotInteractionModuleBase> logger, TelemetryClient telemetryClient, IConfiguration configuration)
   {
     _logger = logger;
     _telemetryClient = telemetryClient;
+    _settings = configuration.GetRequiredSection("BanceyBot").Get<BanceyBotSettings>();
   }
 
   public override void BeforeExecute(ICommandInfo command)

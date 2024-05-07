@@ -4,15 +4,25 @@ using Microsoft.ApplicationInsights.DataContracts;
 
 namespace Bancey.Bot.WorkerService;
 
-public class AzureCommands(ILogger<AzureCommands> logger, TelemetryClient telemetryClient) : BanceyBotInteractionModuleBase(logger, telemetryClient)
+[Group("azure", "Azure Commands")]
+public class AzureCommands(ILogger<AzureCommands> logger, TelemetryClient telemetryClient, IConfiguration configuration) : BanceyBotInteractionModuleBase(logger, telemetryClient, configuration)
 {
-  [SlashCommand("echo", "Echoes back the input.")]
-  public async Task Echo(string input)
+  [SlashCommand("list-servers", "Lists servers matching configured tags.")]
+  public async Task GetServers()
   {
-    using (_telemetryClient.StartOperation<RequestTelemetry>("Echo"))
+    if (_settings == null || _settings.Azure == null || _settings.Azure.Tags == null || _settings.Azure.Tags.Count == 0)
     {
-      _logger.LogInformation("Echoing input: {input}", input);
-      await RespondAsync(input);
+      _logger.LogError("Required Azure settings not found.");
+      await RespondAsync("Please contact the bot owner, required settings are missing.");
+      return;
+    }
+
+    using (_telemetryClient.StartOperation<RequestTelemetry>("GetServers"))
+    {
+      _logger.LogInformation("Getting servers matching configured tags. {tags}", _settings.Azure.Tags.ToString());
+      await DeferAsync();
+      await Task.Delay(5000);
+      await FollowupAsync("No servers found.");
     }
   }
 }
