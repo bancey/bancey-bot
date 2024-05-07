@@ -1,7 +1,9 @@
+using Azure.Identity;
 using Bancey.Bot.WorkerService;
 using Discord.WebSocket;
+using Microsoft.Extensions.Azure;
 
-var config = new DiscordSocketConfig()
+var discordConfig = new DiscordSocketConfig()
 {
   AlwaysDownloadUsers = true,
   MessageCacheSize = 100,
@@ -11,9 +13,22 @@ var config = new DiscordSocketConfig()
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
   .AddApplicationInsightsTelemetryWorkerService()
-  .AddSingleton(config)
+  .AddSingleton(discordConfig)
   .AddSingleton<DiscordSocketClient>()
   .AddSingleton<BanceyBot>();
+
+var config = builder.Configuration.GetRequiredSection("BanceyBot").Get<BanceyBotSettings>();
+
+if (config == null || config.Azure == null)
+{
+  throw new InvalidOperationException("Required Azure settings not found.");
+}
+
+builder.Services.AddAzureClients(builder =>
+{
+  builder.UseCredential(new ClientSecretCredential(config.Azure.TenantId, config.Azure.ClientId, config.Azure.ClientSecret));
+  builder.AddArmClient(config.Azure.SubscriptionId);
+});
 
 builder.Services.AddHostedService<DiscordWorker>();
 
