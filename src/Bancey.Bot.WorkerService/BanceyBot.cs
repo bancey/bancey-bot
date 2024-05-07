@@ -12,30 +12,30 @@ public class BanceyBot
   private TelemetryClient _telemetryClient;
   private DiscordSocketClient _client;
 
-  public BanceyBot(ILogger<BanceyBot> logger, TelemetryClient telemetryClient)
+  public BanceyBot(ILogger<BanceyBot> logger, TelemetryClient telemetryClient, DiscordSocketClient client)
   {
     _logger = logger;
     _telemetryClient = telemetryClient;
+    _client = client;
 
     if (!BanceyBotLogger.IsInitialized())
     {
       BanceyBotLogger.InitLogger(_logger);
     }
 
-    var config = new DiscordSocketConfig
-    {
-      AlwaysDownloadUsers = true,
-      MessageCacheSize = 100,
-    };
-    _client = new DiscordSocketClient(config);
     _client.Log += BanceyBotLogger.Log;
     _client.Ready += OnClientReady;
   }
 
   public async Task LoginAndStart(string token)
   {
-    await _client.LoginAsync(TokenType.Bot, token);
-    await _client.StartAsync();
+    using(var loginOperation = _telemetryClient.StartOperation<RequestTelemetry>("LoginAndStart"))
+    {
+      _logger.LogInformation("Logging in to Discord...");
+      await _client.LoginAsync(TokenType.Bot, token);
+      await _client.StartAsync();
+      _logger.LogInformation("Logged in to Discord.");
+    }
   }
 
   public async Task OnClientReady()
@@ -43,8 +43,8 @@ public class BanceyBot
     using(var registerCommandsOperation = _telemetryClient.StartOperation<RequestTelemetry>("RegisterCommands"))
     {
       _logger.LogInformation("Registering commands...");
-      var interactionService = new InteractionService(_client);
-      var result = await interactionService.RegisterCommandsGloballyAsync();
+      var interactionService = new InteractionService(_client.Rest);
+      var result = await interactionService.RegisterCommandsToGuildAsync(423809074400854036);
       _logger.LogInformation("Commands successfully registered: {count}", result.Count);
     }
   }

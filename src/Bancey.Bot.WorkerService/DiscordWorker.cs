@@ -8,15 +8,15 @@ public class DiscordWorker : BackgroundService
 {
     private readonly ILogger<DiscordWorker> _logger;
     private IHostApplicationLifetime _hostApplicationLifetime;
-    private TelemetryClient _telemetryClient;
     private IConfiguration _configuration;
+    private BanceyBot _banceyBot;
 
-    public DiscordWorker(ILogger<DiscordWorker> logger, IHostApplicationLifetime hostApplicationLifetime, TelemetryClient telemetryClient, IConfiguration configuration)
+    public DiscordWorker(ILogger<DiscordWorker> logger, IHostApplicationLifetime hostApplicationLifetime, IConfiguration configuration, BanceyBot banceyBot)
     {
         _logger = logger;
         _hostApplicationLifetime = hostApplicationLifetime;
-        _telemetryClient = telemetryClient;
         _configuration = configuration;
+        _banceyBot = banceyBot;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -39,11 +39,7 @@ public class DiscordWorker : BackgroundService
             return;
         }
 
-        BanceyBotLogger.InitLogger(_logger);
-        var client = new DiscordSocketClient();
-        client.Log += BanceyBotLogger.Log;
-        await client.LoginAsync(TokenType.Bot, settings.DiscordToken);
-        await client.StartAsync();
+        await _banceyBot.LoginAndStart(settings.DiscordToken);
 
         await Task.Delay(-1, stoppingToken);
 
