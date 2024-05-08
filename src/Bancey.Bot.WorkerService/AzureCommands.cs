@@ -12,7 +12,7 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
 {
   private readonly ArmClient _armClient = armClient;
 
-    [SlashCommand("list-servers", "Lists servers matching configured tags.")]
+  [SlashCommand("list-servers", "Lists servers matching configured tags.")]
   public async Task GetServers()
   {
     if (_settings == null || _settings.Azure == null || _settings.Azure.Tags == null || _settings.Azure.Tags.Count == 0)
@@ -22,19 +22,23 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
       return;
     }
 
+    var formattedTags = _settings.Azure.Tags.Select(tag => $"{tag.Key}={tag.Value}");
+
     using (_telemetryClient.StartOperation<RequestTelemetry>("GetServers"))
     {
-      _logger.LogInformation($"Getting servers matching configured tags. {_settings.Azure.Tags}");
+      _logger.LogInformation("Getting servers matching configured tags. {tags}", formattedTags);
       await DeferAsync();
       var subscription = await _armClient.GetDefaultSubscriptionAsync();
-      var resourceGroups = subscription.GetResourceGroups();
+      var virtualMachines = subscription.GetVirtualMachinesAsync();
       var count = 0;
-      await foreach(ResourceGroupResource resourceGroup in resourceGroups)
+      await foreach (var virtualMachine in virtualMachines)
       {
-        var virtualMachines = resourceGroup.GetVirtualMachines();
-        count += await virtualMachines.CountAsync();
+        if (virtualMachine.Data.Tags != null && _settings.Azure.Tags.All(tag => virtualMachine.Data.Tags.ContainsKey(tag.Key) && virtualMachine.Data.Tags[tag.Key] == tag.Value))
+          {
+            count++;
+          }
       }
-      await FollowupAsync($"Found {count} servers from {await resourceGroups.CountAsync()} resource groups. matching configured tags.");
+      await FollowupAsync($"Found {count} servers matching configured tags: {string.Join(", ", formattedTags)}");
     }
   }
 }
