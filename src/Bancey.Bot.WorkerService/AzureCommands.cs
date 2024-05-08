@@ -1,6 +1,7 @@
 using Azure.ResourceManager;
 using Azure.ResourceManager.Compute;
 using Azure.ResourceManager.Resources;
+using Discord;
 using Discord.Interactions;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
@@ -34,11 +35,15 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
       await foreach (var virtualMachine in virtualMachines)
       {
         if (virtualMachine.Data.Tags != null && _settings.Azure.Tags.All(tag => virtualMachine.Data.Tags.ContainsKey(tag.Key) && virtualMachine.Data.Tags[tag.Key] == tag.Value))
-          {
-            count++;
-          }
+        {
+          count++;
+        }
       }
-      await FollowupAsync($"Found {count} servers matching configured tags: {string.Join(", ", formattedTags)}");
+      var embed = new EmbedBuilder()
+        .WithTitle("Azure Servers")
+        .AddField("Count", count)
+        .Build();
+      await FollowupAsync(embeds: [embed]);
     }
   }
 }
