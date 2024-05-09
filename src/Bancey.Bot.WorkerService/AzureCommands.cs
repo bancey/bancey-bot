@@ -1,4 +1,5 @@
 using System.Text;
+using Azure;
 using Azure.ResourceManager;
 using Azure.ResourceManager.Compute;
 using Azure.ResourceManager.Resources;
@@ -47,19 +48,109 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
         .AppendLine($"**Status**: `{virtualMachine.Get().Value.InstanceView().Value.Statuses[1].DisplayStatus}`");
     }
     stringBuilder.AppendLine();
-    stringBuilder.AppendLine($"Start a server: </azure start-server:1237474161455267840>");
+    var commandId = (await Context.Guild.GetApplicationCommandsAsync()).FirstOrDefault(cmd => cmd.Name == "azure")?.Id;
+    stringBuilder.AppendLine($"Start a server: </azure start-server:{commandId}>");
 
     embed.WithDescription(stringBuilder.ToString()).WithFooter($"Total: {virtualMachines.Count}, Tags: {string.Join(", ", formattedTags)}").WithCurrentTimestamp();
     await FollowupAsync(embeds: [embed.Build()]);
     _telemetryClient.StopOperation(getServersOperation);
-
-    var user = await Context.Guild.GetCurrentUserAsync();
   }
 
   [SlashCommand("start-server", "Starts a specific Azure VM.")]
   public async Task StartServer([Summary("serverName", "Attempts to start a server in Azure."), Autocomplete(typeof(VirtualMachineAutoCompleteHandler))] string serverName)
   {
-    await RespondAsync($"Your choice: {serverName}");
+    var startServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StartServer");
+    _logger.LogInformation("Starting server {serverName}", serverName);
+    await DeferAsync();
+    var subscription = await GetSubscription();
+    var virtualMachine = await GetVirtualMachineAsync(subscription, serverName);
+
+    if (virtualMachine == null)
+    {
+      await FollowupAsync($"No server found with the name {serverName}.");
+      _telemetryClient.StopOperation(startServerOperation);
+      return;
+    }
+
+    var result = await virtualMachine.PowerOnAsync(WaitUntil.Started);
+    _logger.LogInformation("Server {serverName} starting...", serverName);
+    await FollowupAsync($"Server {serverName} starting up...");
+
+    while (result.HasCompleted == false)
+    {
+      _logger.LogInformation("Waiting for server {serverName} to start...", serverName);
+      await Task.Delay(5000);
+      await result.UpdateStatusAsync();
+    }
+
+    _logger.LogInformation("Server {serverName} started.", serverName);
+    await FollowupAsync($"Server {serverName} started.");
+    _telemetryClient.StopOperation(startServerOperation);
+  }
+
+  [SlashCommand("stop-server", "Stops a specific Azure VM.")]
+  public async Task StopServer([Summary("serverName", "Attempts to stop a server in Azure."), Autocomplete(typeof(VirtualMachineAutoCompleteHandler))] string serverName)
+  {
+    var stopServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StopServer");
+    _logger.LogInformation("Shutting down server {serverName} gracefully.", serverName);
+    await DeferAsync();
+    var subscription = await GetSubscription();
+    var virtualMachine = await GetVirtualMachineAsync(subscription, serverName);
+
+    if (virtualMachine == null)
+    {
+      await FollowupAsync($"No server found with the name {serverName}.");
+      _telemetryClient.StopOperation(stopServerOperation);
+      return;
+    }
+
+    var result = await virtualMachine.PowerOffAsync(WaitUntil.Started, false);
+    _logger.LogInformation("Server {serverName} shutting down...", serverName);
+    await FollowupAsync($"Server {serverName} shutting down...");
+
+    await result.UpdateStatusAsync();
+
+    while (result.HasCompleted == false)
+    { 
+      _logger.LogInformation("Waiting for server {serverName} to shutdown...", serverName);
+      await Task.Delay(5000);
+      await result.UpdateStatusAsync();
+    }
+
+    _logger.LogInformation("Server {serverName} shutdown.", serverName);
+    await FollowupAsync($"Server {serverName} shutdown... Now deallocating resources.");
+
+    var deallocateResult = await virtualMachine.DeallocateAsync(WaitUntil.Started);
+    _logger.LogInformation("Server {serverName} deallocating.", serverName);
+    
+    while(deallocateResult.HasCompleted == false)
+    {
+      _logger.LogInformation("Waiting for server {serverName} to deallocate...", serverName);
+      await Task.Delay(5000);
+      await deallocateResult.UpdateStatusAsync();
+    }
+
+    _logger.LogInformation("Server {serverName} deallocated.", serverName);
+    await FollowupAsync($"Server {serverName} deallocated.");
+    _telemetryClient.StopOperation(stopServerOperation);
+  }
+
+  private async Task<VirtualMachineResource?> GetVirtualMachineAsync(SubscriptionResource subscription, string serverName)
+  {
+    if (_vmCache.TryGetValue(serverName, out VirtualMachineResource? value) && value != null)
+    {
+      _logger.LogInformation("Virtual Machine {name} returned from cache.", value.Data.Name);
+      return value;
+    }
+
+    var virtualMachine = await subscription.GetVirtualMachinesAsync(filter: $"name eq '{serverName}'").FirstOrDefaultAsync();
+
+    if (virtualMachine == null) return null;
+
+    MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
+      .SetSlidingExpiration(TimeSpan.FromMinutes(3));
+    _vmCache.CacheResource(serverName, virtualMachine, cacheEntryOptions);
+    return virtualMachine;
   }
 
   private async Task<IList<VirtualMachineResource>> GetVirtualMachines(SubscriptionResource subscription, Dictionary<string, string> tags)
@@ -80,14 +171,14 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
       return filteredVirtualMachines;
     }
 
-    _logger.LogInformation("No valid cache entries found, quering Azure...");
+    _logger.LogInformation("No valid cache entries found, querying Azure...");
     var virtualMachines = subscription.GetVirtualMachinesAsync();
     await foreach (var virtualMachine in virtualMachines)
     {
       if (virtualMachine.Data.Tags != null && tags.All(tag => virtualMachine.Data.Tags.ContainsKey(tag.Key) && virtualMachine.Data.Tags[tag.Key] == tag.Value))
       {
         MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
-          .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+          .SetSlidingExpiration(TimeSpan.FromMinutes(3));
         _vmCache.CacheResource(virtualMachine.Data.Name, virtualMachine, cacheEntryOptions);
         filteredVirtualMachines.Add(virtualMachine);
       }

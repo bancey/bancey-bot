@@ -2,6 +2,7 @@ using Azure.Identity;
 using Azure.ResourceManager.Compute;
 using Azure.ResourceManager.Resources;
 using Bancey.Bot.WorkerService;
+using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Azure;
 
@@ -18,6 +19,7 @@ builder.Services
   .AddMemoryCache()
   .AddSingleton(discordConfig)
   .AddSingleton<DiscordSocketClient>()
+  .AddSingleton<InteractionService>()
   .AddSingleton<BanceyBot>()
   .AddSingleton<ResourceCacheManager<VirtualMachineResource>>()
   .AddSingleton<ResourceCacheManager<SubscriptionResource>>();

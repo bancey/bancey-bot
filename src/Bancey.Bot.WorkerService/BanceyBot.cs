@@ -13,7 +13,7 @@ public class BanceyBot
   private readonly ILogger<BanceyBot> _logger;
   private TelemetryClient _telemetryClient;
   private DiscordSocketClient _client;
-  private InteractionService? _interactionService;
+  private InteractionService _interactionService;
 
   public BanceyBot(IServiceProvider serviceProvider)
   {
@@ -21,6 +21,7 @@ public class BanceyBot
     _logger = _serviceProvider.GetRequiredService<ILogger<BanceyBot>>();
     _telemetryClient = _serviceProvider.GetRequiredService<TelemetryClient>();
     _client = _serviceProvider.GetRequiredService<DiscordSocketClient>();
+    _interactionService = _serviceProvider.GetRequiredService<InteractionService>();
 
     if (!BanceyBotLogger.IsInitialized())
     {
@@ -54,10 +55,8 @@ public class BanceyBot
   {
     var registerCommandsOperation = _telemetryClient.StartOperation<RequestTelemetry>("RegisterCommands");
     _logger.LogInformation("Registering commands...");
-    var interactionService = new InteractionService(_client.Rest);
-    _interactionService = interactionService;
-    await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _serviceProvider);
-    var result = await interactionService.RegisterCommandsToGuildAsync(423809074400854036);
+    await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _serviceProvider);
+    var result = await _interactionService.RegisterCommandsToGuildAsync(423809074400854036);
     _client.InteractionCreated += InteractionCreated;
     _logger.LogInformation("Commands successfully registered: {count}", result.Count);
     _telemetryClient.StopOperation(registerCommandsOperation);
