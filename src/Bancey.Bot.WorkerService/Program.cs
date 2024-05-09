@@ -13,6 +13,7 @@ var discordConfig = new DiscordSocketConfig()
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
   .AddApplicationInsightsTelemetryWorkerService()
+  .AddMemoryCache()
   .AddSingleton(discordConfig)
   .AddSingleton<DiscordSocketClient>()
   .AddSingleton<BanceyBot>();
