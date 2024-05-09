@@ -45,4 +45,10 @@ public class DiscordWorker : BackgroundService
 
         _hostApplicationLifetime.StopApplication();
     }
+
+    public override async Task StopAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("DiscordWorker stopping at: {time}", DateTimeOffset.Now);
+        await _banceyBot.Stop();
+    }
 }

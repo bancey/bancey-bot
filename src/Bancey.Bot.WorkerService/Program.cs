@@ -1,4 +1,6 @@
 using Azure.Identity;
+using Azure.ResourceManager.Compute;
+using Azure.ResourceManager.Resources;
 using Bancey.Bot.WorkerService;
 using Discord.WebSocket;
 using Microsoft.Extensions.Azure;
@@ -16,7 +18,9 @@ builder.Services
   .AddMemoryCache()
   .AddSingleton(discordConfig)
   .AddSingleton<DiscordSocketClient>()
-  .AddSingleton<BanceyBot>();
+  .AddSingleton<BanceyBot>()
+  .AddSingleton<ResourceCacheManager<VirtualMachineResource>>()
+  .AddSingleton<ResourceCacheManager<SubscriptionResource>>();
 
 var config = builder.Configuration.GetRequiredSection("BanceyBot").Get<BanceyBotSettings>();
 

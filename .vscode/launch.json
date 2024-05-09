@@ -1,0 +1,19 @@
+{
+  "name": ".NET Core WSL Launch",
+  "type": "coreclr",
+  "request": "launch",
+  "preLaunchTask": "publish",
+  "program": "/home/bancey/repos/bancey-bot/src/Bancey.Bot.WorkerService/bin/publish/Bancey.Bot.WorkerService.dll",
+  "args": [],
+  "cwd": "/home/bancey/repos/bancey-bot/src/Bancey.Bot.WorkerService",
+  "stopAtEntry": false,
+  "console": "internalConsole",
+  "pipeTransport": {
+    "pipeCwd": "${workspaceRoot}",
+    "pipeProgram": "bash.exe",
+    "pipeArgs": [
+      "-c"
+    ],
+    "debuggerPath": "~/vsdbg/vsdbg"
+  }
+}

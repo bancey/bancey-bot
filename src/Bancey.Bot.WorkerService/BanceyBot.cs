@@ -33,27 +33,34 @@ public class BanceyBot
 
   public async Task LoginAndStart(string token)
   {
-    using(var loginOperation = _telemetryClient.StartOperation<RequestTelemetry>("LoginAndStart"))
-    {
-      _logger.LogInformation("Logging in to Discord...");
-      await _client.LoginAsync(TokenType.Bot, token);
-      await _client.StartAsync();
-      _logger.LogInformation("Logged in to Discord.");
-    }
+    var loginOperation = _telemetryClient.StartOperation<RequestTelemetry>("LoginAndStart");
+    _logger.LogInformation("Logging in to Discord...");
+    await _client.LoginAsync(TokenType.Bot, token);
+    await _client.StartAsync();
+    _logger.LogInformation("Logged in to Discord.");
+    _telemetryClient.StopOperation(loginOperation);
+  }
+
+  public async Task Stop()
+  {
+    var stopOperation = _telemetryClient.StartOperation<RequestTelemetry>("Stop");
+    _logger.LogInformation("Stopping Discord client...");
+    await _client.StopAsync();
+    _logger.LogInformation("Stopped Discord client.");
+    _telemetryClient.StopOperation(stopOperation);
   }
 
   public async Task OnClientReady()
   {
-    using(var registerCommandsOperation = _telemetryClient.StartOperation<RequestTelemetry>("RegisterCommands"))
-    {
-      _logger.LogInformation("Registering commands...");
-      var interactionService = new InteractionService(_client.Rest);
-      _interactionService = interactionService;
-      await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _serviceProvider);
-      var result = await interactionService.RegisterCommandsToGuildAsync(423809074400854036);
-      _client.InteractionCreated += InteractionCreated;
-      _logger.LogInformation("Commands successfully registered: {count}", result.Count);
-    }
+    var registerCommandsOperation = _telemetryClient.StartOperation<RequestTelemetry>("RegisterCommands");
+    _logger.LogInformation("Registering commands...");
+    var interactionService = new InteractionService(_client.Rest);
+    _interactionService = interactionService;
+    await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _serviceProvider);
+    var result = await interactionService.RegisterCommandsToGuildAsync(423809074400854036);
+    _client.InteractionCreated += InteractionCreated;
+    _logger.LogInformation("Commands successfully registered: {count}", result.Count);
+    _telemetryClient.StopOperation(registerCommandsOperation);
   }
 
   public async Task InteractionCreated(SocketInteraction interaction)
@@ -64,12 +71,11 @@ public class BanceyBot
       return;
     }
 
-    using(var interactionCreatedOperation = _telemetryClient.StartOperation<RequestTelemetry>("InteractionCreated"))
-    {
-      _logger.LogInformation("Interaction executed {id}.", interaction.Id);
-      var scope = _serviceProvider.CreateScope();
-      var ctx = new SocketInteractionContext(_client, interaction);
-      await _interactionService.ExecuteCommandAsync(ctx, scope.ServiceProvider);
-    }
+    var interactionCreatedOperation = _telemetryClient.StartOperation<RequestTelemetry>("InteractionCreated");
+    _logger.LogInformation("Interaction executed {id}.", interaction.Id);
+    var scope = _serviceProvider.CreateScope();
+    var ctx = new SocketInteractionContext(_client, interaction);
+    await _interactionService.ExecuteCommandAsync(ctx, scope.ServiceProvider);
+    _telemetryClient.StopOperation(interactionCreatedOperation);
   }
 }
