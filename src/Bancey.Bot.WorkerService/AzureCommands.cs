@@ -1,22 +1,16 @@
 using System.Text;
 using Azure;
-using Azure.ResourceManager;
-using Azure.ResourceManager.Compute;
-using Azure.ResourceManager.Resources;
 using Discord;
 using Discord.Interactions;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace Bancey.Bot.WorkerService;
 
 [Group("azure", "Azure Commands")]
-public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, TelemetryClient telemetryClient, IConfiguration configuration, ArmClient armClient, ResourceCacheManager<SubscriptionResource> subscriptionCache, ResourceCacheManager<VirtualMachineResource> vmCache) : BanceyBotInteractionModuleBase(logger, telemetryClient, configuration)
+public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, TelemetryClient telemetryClient, IConfiguration configuration, AzureClient azureClient) : BanceyBotInteractionModuleBase(logger, telemetryClient, configuration)
 {
-  private readonly ArmClient _armClient = armClient;
-  private ResourceCacheManager<SubscriptionResource> _subscriptionCache = subscriptionCache;
-  private ResourceCacheManager<VirtualMachineResource> _vmCache = vmCache;
+  private readonly AzureClient _azureClient = azureClient;
 
   [SlashCommand("list-servers", "Lists servers matching configured tags.")]
   public async Task GetServers()
@@ -28,13 +22,20 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
       return;
     }
 
+    var valid = await ValidateUser();
+    if (!valid) {
+      _logger.LogError("User {user} in Channel {channel} is not authorized to run this command.", Context.User.GlobalName, Context.Channel.Name);
+      await RespondAsync("You or this channel are not authorised to run this command. Please contact the bot owner.");
+      return;
+    }
+
     var formattedTags = _settings.Azure.Tags.Select(tag => $"{tag.Key}={tag.Value}");
 
     var getServersOperation = _telemetryClient.StartOperation<RequestTelemetry>("GetServers");
     _logger.LogInformation("Getting servers matching configured tags. {tags}", formattedTags);
     await DeferAsync();
-    var subscription = await GetSubscription();
-    var virtualMachines = await GetVirtualMachines(subscription, _settings.Azure.Tags);
+    var subscription = await _azureClient.GetSubscription();
+    var virtualMachines = await _azureClient.GetVirtualMachines(subscription, _settings.Azure.Tags);
 
     var embed = new EmbedBuilder()
       .WithTitle("Azure Servers")
@@ -62,8 +63,8 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
     var startServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StartServer");
     _logger.LogInformation("Starting server {serverName}", serverName);
     await DeferAsync();
-    var subscription = await GetSubscription();
-    var virtualMachine = await GetVirtualMachineAsync(subscription, serverName);
+    var subscription = await _azureClient.GetSubscription();
+    var virtualMachine = await _azureClient.GetVirtualMachineAsync(subscription, serverName);
 
     if (virtualMachine == null)
     {
@@ -94,8 +95,8 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
     var stopServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StopServer");
     _logger.LogInformation("Shutting down server {serverName} gracefully.", serverName);
     await DeferAsync();
-    var subscription = await GetSubscription();
-    var virtualMachine = await GetVirtualMachineAsync(subscription, serverName);
+    var subscription = await _azureClient.GetSubscription();
+    var virtualMachine = await _azureClient.GetVirtualMachineAsync(subscription, serverName);
 
     if (virtualMachine == null)
     {
@@ -111,7 +112,7 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
     await result.UpdateStatusAsync();
 
     while (result.HasCompleted == false)
-    { 
+    {
       _logger.LogInformation("Waiting for server {serverName} to shutdown...", serverName);
       await Task.Delay(5000);
       await result.UpdateStatusAsync();
@@ -122,8 +123,8 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
 
     var deallocateResult = await virtualMachine.DeallocateAsync(WaitUntil.Started);
     _logger.LogInformation("Server {serverName} deallocating.", serverName);
-    
-    while(deallocateResult.HasCompleted == false)
+
+    while (deallocateResult.HasCompleted == false)
     {
       _logger.LogInformation("Waiting for server {serverName} to deallocate...", serverName);
       await Task.Delay(5000);
@@ -133,72 +134,5 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
     _logger.LogInformation("Server {serverName} deallocated.", serverName);
     await FollowupAsync($"Server {serverName} deallocated.");
     _telemetryClient.StopOperation(stopServerOperation);
-  }
-
-  private async Task<VirtualMachineResource?> GetVirtualMachineAsync(SubscriptionResource subscription, string serverName)
-  {
-    if (_vmCache.TryGetValue(serverName, out VirtualMachineResource? value) && value != null)
-    {
-      _logger.LogInformation("Virtual Machine {name} returned from cache.", value.Data.Name);
-      return value;
-    }
-
-    var virtualMachine = await subscription.GetVirtualMachinesAsync(filter: $"name eq '{serverName}'").FirstOrDefaultAsync();
-
-    if (virtualMachine == null) return null;
-
-    MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
-      .SetSlidingExpiration(TimeSpan.FromMinutes(3));
-    _vmCache.CacheResource(serverName, virtualMachine, cacheEntryOptions);
-    return virtualMachine;
-  }
-
-  private async Task<IList<VirtualMachineResource>> GetVirtualMachines(SubscriptionResource subscription, Dictionary<string, string> tags)
-  {
-    var filteredVirtualMachines = new List<VirtualMachineResource>();
-    foreach (string key in _vmCache.CachedKeys())
-    {
-      if (_vmCache.TryGetValue(key, out VirtualMachineResource? value) && value != null)
-      {
-        _logger.LogInformation("Virtual Machine {name} returned from cache.", value.Data.Name);
-        filteredVirtualMachines.Add(value);
-      }
-    }
-
-    if (filteredVirtualMachines.Count > 0)
-    {
-      _logger.LogInformation("Returning {count} virtual machines from cache.", filteredVirtualMachines.Count);
-      return filteredVirtualMachines;
-    }
-
-    _logger.LogInformation("No valid cache entries found, querying Azure...");
-    var virtualMachines = subscription.GetVirtualMachinesAsync();
-    await foreach (var virtualMachine in virtualMachines)
-    {
-      if (virtualMachine.Data.Tags != null && tags.All(tag => virtualMachine.Data.Tags.ContainsKey(tag.Key) && virtualMachine.Data.Tags[tag.Key] == tag.Value))
-      {
-        MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
-          .SetSlidingExpiration(TimeSpan.FromMinutes(3));
-        _vmCache.CacheResource(virtualMachine.Data.Name, virtualMachine, cacheEntryOptions);
-        filteredVirtualMachines.Add(virtualMachine);
-      }
-    }
-    return filteredVirtualMachines;
-  }
-
-  private async Task<SubscriptionResource> GetSubscription()
-  {
-    if (_subscriptionCache.TryGetValue("defaultSubscription", out SubscriptionResource? value) && value != null)
-    {
-      _logger.LogInformation("Subscription {name} returned from cache.", value.Data.DisplayName);
-      return value;
-    }
-
-    MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
-      .SetSlidingExpiration(TimeSpan.FromMinutes(10));
-    SubscriptionResource subscription = await _armClient.GetDefaultSubscriptionAsync();
-    _logger.LogInformation("Subscription {name} added to cache.", subscription.Data.DisplayName);
-    _subscriptionCache.CacheResource("defaultSubscription", subscription, cacheEntryOptions);
-    return subscription;
   }
 }

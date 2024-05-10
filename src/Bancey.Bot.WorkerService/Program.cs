@@ -22,7 +22,8 @@ builder.Services
   .AddSingleton<InteractionService>()
   .AddSingleton<BanceyBot>()
   .AddSingleton<ResourceCacheManager<VirtualMachineResource>>()
-  .AddSingleton<ResourceCacheManager<SubscriptionResource>>();
+  .AddSingleton<ResourceCacheManager<SubscriptionResource>>()
+  .AddSingleton<AzureClient>();
 
 var config = builder.Configuration.GetRequiredSection("BanceyBot").Get<BanceyBotSettings>();
 
