@@ -1,7 +1,8 @@
+using Bancey.Bot.WorkerService.Model;
 using Discord.Interactions;
 using Microsoft.ApplicationInsights;
 
-namespace Bancey.Bot.WorkerService;
+namespace Bancey.Bot.WorkerService.Interaction;
 
 public abstract class BanceyBotInteractionModuleBase : InteractionModuleBase
 {

@@ -1,4 +1,4 @@
-namespace Bancey.Bot.WorkerService;
+namespace Bancey.Bot.WorkerService.Model;
 
 public sealed class BanceyBotSettings
 {

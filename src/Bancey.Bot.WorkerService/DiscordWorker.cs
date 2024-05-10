@@ -1,9 +1,6 @@
+using Bancey.Bot.WorkerService.Model;
+
 namespace Bancey.Bot.WorkerService;
-
-using Discord;
-using Discord.WebSocket;
-using Microsoft.ApplicationInsights;
-
 public class DiscordWorker : BackgroundService
 {
     private readonly ILogger<DiscordWorker> _logger;

@@ -1,11 +1,12 @@
 using System.Text;
 using Azure;
+using Bancey.Bot.WorkerService.Azure;
 using Discord;
 using Discord.Interactions;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 
-namespace Bancey.Bot.WorkerService;
+namespace Bancey.Bot.WorkerService.Interaction;
 
 [Group("azure", "Azure Commands")]
 public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, TelemetryClient telemetryClient, IConfiguration configuration, AzureClient azureClient) : BanceyBotInteractionModuleBase(logger, telemetryClient, configuration)
