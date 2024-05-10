@@ -43,7 +43,7 @@ jobs:
             type=sha
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
       - name: Build and push
-        uses: docker/build-push-action@v4.0.0
+        uses: docker/build-push-action@v4.2.1
         with:
           context: .
           platforms: linux/amd64,linux/arm64
