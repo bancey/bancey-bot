@@ -30,13 +30,40 @@ public abstract class BanceyBotInteractionModuleBase : InteractionModuleBase
 
   internal async Task<bool> ValidateUser()
   {
-    _logger.LogInformation("Checking if channel is valid...");
-    var validChannel = _settings == null || _settings.AllowedChannelIds == null || _settings.AllowedChannelIds.Count == 0 ? true : _settings?.AllowedChannelIds.Contains(Context.Channel.Id.ToString());
+    if (_settings == null)
+    {
+      _logger.LogInformation("Unable to validate user, settings are null.");
+      return true;
+    }
+
+    bool validChannel = true;
+    bool validRoles = true;
+
+    if (_settings.AllowedChannelIds != null && _settings.AllowedChannelIds.Count > 0)
+    {
+      string channelId = Context.Channel.Id.ToString();
+      _logger.LogInformation("Checking if channel {channel} is valid...", channelId);
+      try
+      {
+        validChannel = _settings.AllowedChannelIds.Contains(channelId);
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError("Error checking channel {channel}: {error}", channelId, ex.Message);
+        _logger.LogInformation("Type {}", ex.GetType().FullName);
+      }
+
+    }
     _logger.LogInformation("Channel {channel} is {valid}", $"{Context.Channel.Name}-{Context.Channel.Id}", validChannel);
-    _logger.LogInformation("Checking if user has the correct roles...");
-    var guildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-    var validRoles = _settings == null || _settings.AllowedRoleIds == null || _settings.AllowedRoleIds.Count == 0 ? true : _settings?.AllowedRoleIds.All(allowedRole => guildUser.RoleIds.Contains(ulong.Parse(allowedRole)));
+
+    if (_settings.AllowedRoleIds != null && _settings.AllowedRoleIds.Count > 0)
+    {
+      _logger.LogInformation("Checking if user has the correct roles...");
+      var guildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+      validRoles = _settings.AllowedRoleIds.All(allowedRole => guildUser.RoleIds.Contains(ulong.Parse(allowedRole)));
+    }
     _logger.LogInformation("User {user} is {valid}", $"{Context.User.GlobalName}-{Context.User.Id}", validRoles);
+
     return validChannel == true && validRoles == true;
   }
 }
