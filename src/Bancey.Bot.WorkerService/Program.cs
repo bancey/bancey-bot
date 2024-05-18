@@ -40,6 +40,19 @@ builder.Services.AddAzureClients(builder =>
     builder.AddArmClient(config.Azure.SubscriptionId);
 });
 
+if (config.Pterodactyl == null)
+{
+    throw new InvalidOperationException("Required Pterodactyl settings not found.");
+}
+var httpClient = new HttpClient
+{
+    BaseAddress = new Uri(config.Pterodactyl.BaseUrl)
+};
+httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.Pterodactyl.ClientToken}");
+
+builder.Services.AddSingleton(httpClient);
+
 builder.Services.AddHostedService<DiscordWorker>();
 
 var host = builder.Build();

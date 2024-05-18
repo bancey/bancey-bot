@@ -6,4 +6,5 @@ public sealed class BanceyBotSettings
     public required List<string> AllowedChannelIds { get; set; }
     public required List<string> AllowedRoleIds { get; set; }
     public required BanceyBotAzureSettings Azure { get; set; }
+    public required BanceyBotPterodactylSettings Pterodactyl { get; set; }
 }

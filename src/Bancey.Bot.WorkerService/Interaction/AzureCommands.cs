@@ -33,7 +33,7 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
 
         var formattedTags = _settings.Azure.Tags.Select(tag => $"{tag.Key}={tag.Value}");
 
-        var getServersOperation = _telemetryClient.StartOperation<RequestTelemetry>("GetServers");
+        var getServersOperation = _telemetryClient.StartOperation<RequestTelemetry>("GetAzureServers");
         _logger.LogInformation("Getting servers matching configured tags. {tags}", formattedTags);
         await DeferAsync();
         var subscription = await _azureClient.GetSubscription();
@@ -69,7 +69,7 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
             await RespondAsync("You or this channel are not authorised to run this command. Please contact the bot owner.");
             return;
         }
-        var startServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StartServer");
+        var startServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StartAzureServer");
         _logger.LogInformation("Starting server {serverName}", serverName);
         await DeferAsync();
         var subscription = await _azureClient.GetSubscription();
@@ -109,7 +109,7 @@ public class AzureCommands(ILogger<BanceyBotInteractionModuleBase> logger, Telem
             return;
         }
 
-        var stopServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StopServer");
+        var stopServerOperation = _telemetryClient.StartOperation<RequestTelemetry>("StopAzureServer");
         _logger.LogInformation("Shutting down server {serverName} gracefully.", serverName);
         await DeferAsync();
         var subscription = await _azureClient.GetSubscription();
