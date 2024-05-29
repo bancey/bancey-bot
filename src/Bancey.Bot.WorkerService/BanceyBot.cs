@@ -1,6 +1,8 @@
 using System.Reflection;
+using Bancey.Bot.WorkerService.Model;
 using Discord;
 using Discord.Interactions;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
@@ -9,11 +11,12 @@ namespace Bancey.Bot.WorkerService;
 
 public class BanceyBot
 {
-    private IServiceProvider _serviceProvider;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<BanceyBot> _logger;
-    private TelemetryClient _telemetryClient;
-    private DiscordSocketClient _client;
-    private InteractionService _interactionService;
+    private readonly TelemetryClient _telemetryClient;
+    private readonly DiscordSocketClient _client;
+    private readonly InteractionService _interactionService;
+    private readonly BanceyBotSettings _settings;
 
     public BanceyBot(IServiceProvider serviceProvider)
     {
@@ -22,6 +25,15 @@ public class BanceyBot
         _telemetryClient = _serviceProvider.GetRequiredService<TelemetryClient>();
         _client = _serviceProvider.GetRequiredService<DiscordSocketClient>();
         _interactionService = _serviceProvider.GetRequiredService<InteractionService>();
+
+        BanceyBotSettings? settings = _serviceProvider.GetRequiredService<IConfiguration>().GetRequiredSection("BanceyBot").Get<BanceyBotSettings>();
+
+        if (settings == null)
+        {
+            throw new InvalidOperationException("Settings not found.");
+        }
+
+        _settings = settings;
 
         if (!BanceyBotLogger.IsInitialized())
         {
@@ -56,9 +68,21 @@ public class BanceyBot
         var registerCommandsOperation = _telemetryClient.StartOperation<RequestTelemetry>("RegisterCommands");
         _logger.LogInformation("Registering commands...");
         await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _serviceProvider);
-        var result = await _interactionService.RegisterCommandsToGuildAsync(423809074400854036);
+
+        IReadOnlyCollection<RestApplicationCommand> registerCommandsResult;
+        if (_settings.GuildId == ulong.MinValue)
+        {
+            _logger.LogInformation("Guild ID not set, registering commands globally.");
+            registerCommandsResult = await _interactionService.RegisterCommandsGloballyAsync();
+        }
+        else
+        {
+            _logger.LogInformation("Registering commands to guild {guildId}.", _settings.GuildId);
+            registerCommandsResult = await _interactionService.RegisterCommandsToGuildAsync(_settings.GuildId);
+        }
+
         _client.InteractionCreated += InteractionCreated;
-        _logger.LogInformation("Commands successfully registered: {count}", result.Count);
+        _logger.LogInformation("Commands successfully registered: {count}", registerCommandsResult.Count);
         _telemetryClient.StopOperation(registerCommandsOperation);
     }
 
