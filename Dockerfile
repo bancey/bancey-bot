@@ -18,3 +18,6 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "Bancey.Bot.WorkerService.dll"]
+
+HEALTHCHECK --start-period=10s --interval=30s --timeout=10s --retries=3 \
+  CMD [ $(find '/tmp/bancey-bot-health' -mmin 0.6 | wc -l) -eq 1 ] || exit 1

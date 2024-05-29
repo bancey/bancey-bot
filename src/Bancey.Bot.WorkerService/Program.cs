@@ -3,10 +3,12 @@ using Azure.ResourceManager.Compute;
 using Azure.ResourceManager.Resources;
 using Bancey.Bot.WorkerService;
 using Bancey.Bot.WorkerService.Azure;
+using Bancey.Bot.WorkerService.Health;
 using Bancey.Bot.WorkerService.Model;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var discordConfig = new DiscordSocketConfig()
 {
@@ -52,6 +54,10 @@ httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.Pterodactyl.ClientToken}");
 
 builder.Services.AddSingleton(httpClient);
+
+builder.Services.AddHealthChecks()
+    .AddCheck<StartupHealthCheck>("Startup");
+builder.Services.AddSingleton<IHealthCheckPublisher, FileHealthCheckPublisher>();
 
 builder.Services.AddHostedService<DiscordWorker>();
 
