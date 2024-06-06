@@ -23,7 +23,7 @@ builder.Services
   .AddMemoryCache()
   .AddSingleton(discordConfig)
   .AddSingleton<DiscordSocketClient>()
-  .AddSingleton<InteractionService>()
+  .AddSingleton(x => new InteractionService(x.GetService<DiscordSocketClient>()!.Rest))
   .AddSingleton<BanceyBot>()
   .AddSingleton<ResourceCacheManager<VirtualMachineResource>>()
   .AddSingleton<ResourceCacheManager<SubscriptionResource>>()
