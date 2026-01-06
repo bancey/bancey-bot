@@ -1,17 +1,17 @@
 Summary
-  Generated on: 01/06/2026 - 12:06:33
-  Coverage date: 01/06/2026 - 11:52:32 - 01/06/2026 - 12:06:32
-  Parser: MultiReport (7x Cobertura)
+  Generated on: 01/06/2026 - 12:11:00
+  Coverage date: 01/06/2026 - 11:52:32 - 01/06/2026 - 12:10:59
+  Parser: MultiReport (10x Cobertura)
   Assemblies: 1
   Classes: 19
   Files: 19
-  Line coverage: 24%
-  Covered lines: 127
-  Uncovered lines: 400
+  Line coverage: 26.5%
+  Covered lines: 140
+  Uncovered lines: 387
   Coverable lines: 527
   Total lines: 873
-  Branch coverage: 16.5% (20 of 121)
-  Covered branches: 20
+  Branch coverage: 19% (23 of 121)
+  Covered branches: 23
   Total branches: 121
   Method coverage: 68.5% (48 of 70)
   Full method coverage: 64.2% (45 of 70)
@@ -19,10 +19,10 @@ Summary
   Fully covered methods: 45
   Total methods: 70
 
-Bancey.Bot.WorkerService                                                     24%
+Bancey.Bot.WorkerService                                                   26.5%
   Bancey.Bot.WorkerService.Azure.AzureClient                                  0%
   Bancey.Bot.WorkerService.Azure.ResourceCacheManager<T>                    100%
-  Bancey.Bot.WorkerService.BanceyBot                                        6.3%
+  Bancey.Bot.WorkerService.BanceyBot                                       26.9%
   Bancey.Bot.WorkerService.BanceyBotLogger                                 83.3%
   Bancey.Bot.WorkerService.DiscordWorker                                      0%
   Bancey.Bot.WorkerService.Health.FileHealthCheckPublisher                 88.8%
